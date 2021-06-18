@@ -17,7 +17,7 @@ if os.path.isdir(os.path.join(root_dir, class_dirs[1])):
 
     for c in classes:
         images = [name for name in os.listdir(os.path.join(root_dir, c)) if name.lower().endswith('png')]
-        selected_images = random.sample(images, 100)
+        selected_images = random.sample(images, 200)
         for image in selected_images:
             source_path = os.path.join(root_dir, c, image)
             target_path = os.path.join(root_dir, 'test', c, image)
