@@ -14,14 +14,23 @@ from pytorch_grad_cam.utils.image import show_cam_on_image
 from torch import nn
 from torch.autograd import Variable
 from torchvision import transforms
-from torchvision.transforms import Compose, ToTensor, Normalize
 
-ROOT_DIR = os.path.abspath(os.curdir)
+MODEL_NAME = "resnet50_V1.pt"
+
+def image_to_tensor(image, resize=True):
+    if resize:
+        test_transforms = transforms.Compose([transforms.Resize(224),
+                                              transforms.ToTensor(),
+                                              transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+    else:
+        test_transforms = transforms.Compose([transforms.ToTensor(),
+                                              transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+    image_tensor = test_transforms(image)
+    return image_tensor.unsqueeze(0)
 
 def predict(model, image):
-    test_transforms = transforms.Compose([transforms.Resize(224), transforms.ToTensor()])
-    image_tensor = test_transforms(image).float()
-    image_tensor = image_tensor.unsqueeze_(0)
+    model.eval()
+    image_tensor = image_to_tensor(image)
     inp = Variable(image_tensor)
     output = model(inp)
     m = nn.Softmax(dim=1)
@@ -34,13 +43,12 @@ def classify(request):
     for chunk in image.chunks():
         os.write(temp, chunk)
 
-    model = torch.load(ROOT_DIR + "/../modelV2.pt")
+    model = torch.load("../" + MODEL_NAME)
     rgb_img = cv2.imread(
         temp_name, 1)[:, :, ::-1]
     os.close(temp)
-    rgb_img = cv2.resize(rgb_img, (224, 224))
-    rgb_img = np.float32(rgb_img) / 255
-    prediction = predict(model, Image.fromarray(rgb_img, 'RGB'))
+    image = Image.fromarray(rgb_img, 'RGB')
+    prediction = predict(model, image)
     response = {
         'normal': prediction[0][0].tolist(),
         'viral': prediction[0][1].tolist(),
@@ -58,28 +66,16 @@ def cam(request):
     for chunk in image.chunks():
         os.write(temp, chunk)
 
-    def preprocess_image(img: np.ndarray, mean=None, std=None) -> torch.Tensor:
-        if std is None:
-            std = [0.229, 0.224, 0.225]
-        if mean is None:
-            mean = [0.485, 0.456, 0.406]
-
-        preprocessing = Compose([
-            ToTensor(),
-            Normalize(mean=mean, std=std)
-        ])
-
-        return preprocessing(img.copy()).unsqueeze(0)
-
-    model = torch.load(ROOT_DIR + "/../modelV2.pt")
-    cam = GradCAM(model=model, target_layer=model.layer4)
+    model = torch.load("../" + MODEL_NAME)
+    cam = GradCAM(model=model, target_layer=model.layer4[-1])
     rgb_img = cv2.imread(
         temp_name, 1)[:, :, ::-1]
-    rgb_img = cv2.resize(rgb_img, (224, 224))
     rgb_img = np.float32(rgb_img) / 255
-    input_tensor = preprocess_image(rgb_img)
+    input_tensor = image_to_tensor(rgb_img.copy(), resize=False)
     grayscale_cam = cam(input_tensor=input_tensor,
-                        target_category=None)
+                        target_category=None,
+                        eigen_smooth=True,
+                        aug_smooth=True)
 
     grayscale_cam = grayscale_cam[0, :]
     cam_image = show_cam_on_image(rgb_img, grayscale_cam)
