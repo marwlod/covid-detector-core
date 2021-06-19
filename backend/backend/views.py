@@ -19,6 +19,16 @@ from torchvision import transforms
 MODEL_NAME = "resnet50_V2.pt"
 
 
+def get_image_from_request(request):
+    image = request.FILES['file']
+    temp, temp_name = tempfile.mkstemp()
+    for chunk in image.chunks():
+        os.write(temp, chunk)
+    rgb_img = cv2.imread(temp_name, 1)[:, :, ::-1]
+    os.close(temp)
+    return rgb_img
+
+
 def load_model():
     model = torchvision.models.resnet50(pretrained=True)
     model.fc = torch.nn.Linear(in_features=2048, out_features=3)
@@ -51,16 +61,9 @@ def predict(model, image):
 
 @csrf_exempt
 def classify(request):
-    image = request.FILES['file']
-    temp, temp_name = tempfile.mkstemp()
-    for chunk in image.chunks():
-        os.write(temp, chunk)
-
-    model = load_model()
-    rgb_img = cv2.imread(
-        temp_name, 1)[:, :, ::-1]
-    os.close(temp)
+    rgb_img = get_image_from_request(request)
     image = Image.fromarray(rgb_img, 'RGB')
+    model = load_model()
     prediction = predict(model, image)
     response = {
         'normal': prediction[0][0].tolist(),
@@ -74,18 +77,12 @@ def classify(request):
 
 @csrf_exempt
 def cam(request):
-    image = request.FILES['file']
-    temp, temp_name = tempfile.mkstemp()
-    for chunk in image.chunks():
-        os.write(temp, chunk)
-
-    model = load_model()
-    cam = GradCAM(model=model, target_layer=model.layer4[-1])
-    rgb_img = cv2.imread(
-        temp_name, 1)[:, :, ::-1]
+    rgb_img = get_image_from_request(request)
     rgb_img = cv2.resize(rgb_img, (224, 224))
     rgb_img = np.float32(rgb_img) / 255
     input_tensor = image_to_tensor(rgb_img.copy(), resize=False)
+    model = load_model()
+    cam = GradCAM(model=model, target_layer=model.layer4[-1])
     grayscale_cam = cam(input_tensor=input_tensor,
                         eigen_smooth=True,
                         aug_smooth=True)
