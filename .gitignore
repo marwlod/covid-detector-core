@@ -3,3 +3,6 @@
 
 # virtual Python env
 venv
+
+# notebook
+.ipynb_checkpoints
