@@ -6,6 +6,7 @@ import tempfile
 import cv2
 import numpy as np
 import torch
+import torchvision
 from PIL import Image
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -15,8 +16,13 @@ from torch import nn
 from torch.autograd import Variable
 from torchvision import transforms
 
-MODEL_NAME = "resnet50_V1.pt"
+MODEL_NAME = "resnet50_V2.pt"
 
+def load_model():
+    model = torchvision.models.resnet50(pretrained=True)
+    model.fc = torch.nn.Linear(in_features=2048, out_features=3)
+    model.load_state_dict(torch.load("../" + MODEL_NAME))
+    return model
 
 def image_to_tensor(image, resize=True):
     if resize:
@@ -48,7 +54,7 @@ def classify(request):
     for chunk in image.chunks():
         os.write(temp, chunk)
 
-    model = torch.load("../" + MODEL_NAME)
+    model = load_model()
     rgb_img = cv2.imread(
         temp_name, 1)[:, :, ::-1]
     os.close(temp)
@@ -71,7 +77,7 @@ def cam(request):
     for chunk in image.chunks():
         os.write(temp, chunk)
 
-    model = torch.load("../" + MODEL_NAME)
+    model = load_model()
     cam = GradCAM(model=model, target_layer=model.layer4[-1])
     rgb_img = cv2.imread(
         temp_name, 1)[:, :, ::-1]
@@ -79,7 +85,6 @@ def cam(request):
     rgb_img = np.float32(rgb_img) / 255
     input_tensor = image_to_tensor(rgb_img.copy(), resize=False)
     grayscale_cam = cam(input_tensor=input_tensor,
-                        target_category=None,
                         eigen_smooth=True,
                         aug_smooth=True)
 
