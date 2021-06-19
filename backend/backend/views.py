@@ -17,16 +17,20 @@ from torchvision import transforms
 
 MODEL_NAME = "resnet50_V1.pt"
 
+
 def image_to_tensor(image, resize=True):
     if resize:
         test_transforms = transforms.Compose([transforms.Resize(224),
                                               transforms.ToTensor(),
-                                              transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+                                              transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                                   std=[0.229, 0.224, 0.225])])
     else:
         test_transforms = transforms.Compose([transforms.ToTensor(),
-                                              transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+                                              transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                                   std=[0.229, 0.224, 0.225])])
     image_tensor = test_transforms(image)
     return image_tensor.unsqueeze(0)
+
 
 def predict(model, image):
     model.eval()
@@ -35,6 +39,7 @@ def predict(model, image):
     output = model(inp)
     m = nn.Softmax(dim=1)
     return m(output)
+
 
 @csrf_exempt
 def classify(request):
@@ -70,6 +75,7 @@ def cam(request):
     cam = GradCAM(model=model, target_layer=model.layer4[-1])
     rgb_img = cv2.imread(
         temp_name, 1)[:, :, ::-1]
+    rgb_img = cv2.resize(rgb_img, (224, 224))
     rgb_img = np.float32(rgb_img) / 255
     input_tensor = image_to_tensor(rgb_img.copy(), resize=False)
     grayscale_cam = cam(input_tensor=input_tensor,
