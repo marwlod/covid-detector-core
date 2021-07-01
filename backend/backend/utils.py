@@ -6,7 +6,7 @@ import torch
 import torchvision
 from torchvision import transforms
 
-MODEL_NAME = "resnet50_V2.pt"
+MODEL_NAME = "resnet50_V3.pt"
 
 
 def get_image_from_request(request):
